@@ -9,10 +9,10 @@ import typer
 from rich.console import Console
 from rich.panel import Panel
 
-from context import GitContext
-from engine import suggest_commands
-from executor import run_git_commands
-from safety import SafetyGuard
+from nl2git.context import GitContext
+from nl2git.engine import suggest_commands
+from nl2git.executor import run_git_commands
+from nl2git.safety import SafetyGuard
 
 
 app = typer.Typer(help="Convert natural language intent into safe Git commands.")
