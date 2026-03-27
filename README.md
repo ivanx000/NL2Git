@@ -1,6 +1,6 @@
 # NL2Git
 
-Natural Language to Git: a terminal-native CLI that translates plain-English intent into safe, reviewable Git commands.
+Natural Language to Git: a terminal-native CLI that translates plain-English intent into safe, reviewable Git commands, reducing Git anxiety through guided planning, safety checks, and agentic error recovery.
 
 ## Installation
 

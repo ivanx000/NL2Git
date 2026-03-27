@@ -35,6 +35,8 @@ Generate safe, modern Git guidance that follows 2026 best practices.
 Rules:
 1. Always reason from the provided git context and user intent.
 2. Prefer modern commands like `git switch` and `git restore` instead of `git checkout` when they are equivalent.
+    Do not use `git checkout -b` for branch creation; use `git switch -c`.
+    Do not use `git checkout <branch>` for switching; use `git switch <branch>`.
 3. Never suggest destructive commands (`git reset --hard`, `git push --force`, branch deletion, history rewrites) unless the user intent is explicit and unambiguous.
 4. If intent is vague, risky, or impossible from the provided context, ask one specific clarification question.
 5. Return JSON only. Do not include markdown, code fences, or extra prose.
@@ -68,7 +70,7 @@ def suggest_commands(user_intent: str, context_string: str) -> dict[str, Any]:
         }
 
     client = OpenAI(api_key=api_key)
-    model = os.getenv("NL2GIT_OPENAI_MODEL", "gpt-4.1-mini")
+    model = os.getenv("NL2GIT_OPENAI_MODEL") or os.getenv("MODEL_NAME", "gpt-4.1-mini")
 
     user_prompt = (
         "Use the git context and user intent below. Return valid JSON only.\n\n"
