@@ -20,11 +20,15 @@ class ExecutionResult:
     error_message: str
 
 
-def run_git_commands(commands: List[str], dry_run: bool = False) -> List[ExecutionResult]:
+def run_git_commands(
+    commands: List[str], dry_run: bool = False, stop_on_first_error: bool = True
+) -> List[ExecutionResult]:
     """Run approved Git commands and return structured per-command results.
 
-    Commands are executed sequentially. Failures are captured and returned so the
-    caller can use them for feedback or self-healing suggestions.
+    Commands are executed sequentially. If stop_on_first_error is True (default),
+    execution halts on the first failure to prevent cascading errors in Git workflows.
+    Failures are captured and returned so the caller can use them for feedback or
+    self-healing suggestions.
     """
     console = Console()
     results: List[ExecutionResult] = []
@@ -41,6 +45,8 @@ def run_git_commands(commands: List[str], dry_run: bool = False) -> List[Executi
                     error_message="Empty command string.",
                 )
             )
+            if stop_on_first_error:
+                break
             continue
 
         if dry_run:
@@ -67,6 +73,8 @@ def run_git_commands(commands: List[str], dry_run: bool = False) -> List[Executi
                     error_message=f"Command parse failed: {exc}",
                 )
             )
+            if stop_on_first_error:
+                break
             continue
 
         if not argv or argv[0] != "git":
@@ -79,6 +87,8 @@ def run_git_commands(commands: List[str], dry_run: bool = False) -> List[Executi
                     error_message="Only git commands are allowed in executor.",
                 )
             )
+            if stop_on_first_error:
+                break
             continue
 
         try:
@@ -113,6 +123,8 @@ def run_git_commands(commands: List[str], dry_run: bool = False) -> List[Executi
                     error_message=str(exc),
                 )
             )
+            if stop_on_first_error:
+                break
 
     return results
 
