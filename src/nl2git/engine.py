@@ -7,7 +7,8 @@ import os
 from typing import Any, Literal
 
 from dotenv import load_dotenv
-from openai import OpenAI
+import google.generativeai as genai
+from google.api_core import exceptions as google_exceptions
 from pydantic import BaseModel, TypeAdapter, ValidationError
 
 
@@ -62,15 +63,33 @@ def suggest_commands(user_intent: str, context_string: str) -> dict[str, Any]:
             "message": "What Git task do you want to perform? For example: create a branch, stage files, commit, or sync with remote.",
         }
 
-    api_key = os.getenv("OPENAI_API_KEY")
+    api_key = os.getenv("GOOGLE_API_KEY")
     if not api_key:
         return {
             "type": "clarification",
-            "message": "OPENAI_API_KEY is missing. Add it to your .env file and retry.",
+            "message": "GOOGLE_API_KEY is missing. Add it to your .env file and retry.",
         }
 
-    client = OpenAI(api_key=api_key)
-    model = os.getenv("NL2GIT_OPENAI_MODEL") or os.getenv("MODEL_NAME", "gpt-4.1-mini")
+    genai.configure(api_key=api_key)
+    model = os.getenv("NL2GIT_GEMINI_MODEL") or os.getenv("MODEL_NAME", "gemini-2.5-flash")
+
+    # Define JSON schema for structured output
+    json_schema = {
+        "type": "object",
+        "properties": {
+            "type": {
+                "type": "string",
+                "enum": ["commands", "clarification"]
+            },
+            "reasoning": {"type": "string"},
+            "commands": {
+                "type": "array",
+                "items": {"type": "string"}
+            },
+            "message": {"type": "string"}
+        },
+        "required": ["type"]
+    }
 
     user_prompt = (
         "Use the git context and user intent below. Return valid JSON only.\n\n"
@@ -79,28 +98,44 @@ def suggest_commands(user_intent: str, context_string: str) -> dict[str, Any]:
     )
 
     try:
-        response = client.chat.completions.create(
-            model=model,
-            temperature=0,
-            response_format={"type": "json_object"},
-            messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": user_prompt},
-            ],
+        client = genai.GenerativeModel(
+            model_name=model,
+            system_instruction=SYSTEM_PROMPT,
+            generation_config=genai.types.GenerationConfig(
+                temperature=0,
+                response_mime_type="application/json",
+                response_schema=json_schema,
+            ),
         )
 
-        raw_content = response.choices[0].message.content or ""
+        response = client.generate_content(user_prompt)
+        raw_content = response.text or ""
         parsed_json = json.loads(raw_content)
         validated = SuggestionAdapter.validate_python(parsed_json)
         return validated.model_dump()
 
-    except (json.JSONDecodeError, ValidationError):
+    except json.JSONDecodeError:
         return {
             "type": "clarification",
             "message": "I could not validate the AI response. Please rephrase your request with more Git-specific detail.",
         }
+    except ValidationError:
+        return {
+            "type": "clarification",
+            "message": "I could not validate the AI response. Please rephrase your request with more Git-specific detail.",
+        }
+    except google_exceptions.InvalidArgument as exc:
+        return {
+            "type": "clarification",
+            "message": f"Gemini API error (invalid request): {exc}. Please retry with a simpler request.",
+        }
+    except google_exceptions.PermissionDenied as exc:
+        return {
+            "type": "clarification",
+            "message": f"Gemini API authentication failed: {exc}. Check your GOOGLE_API_KEY.",
+        }
     except Exception as exc:
         return {
             "type": "clarification",
-            "message": f"OpenAI request failed: {exc}. Please retry in a moment.",
+            "message": f"Gemini API request failed: {exc}. Please retry in a moment.",
         }

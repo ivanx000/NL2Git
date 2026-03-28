@@ -32,11 +32,11 @@ def _is_git_repository() -> bool:
 
 
 def _show_api_key_setup_panel() -> None:
-    """Render setup guidance when OPENAI_API_KEY is missing."""
+    """Render setup guidance when GOOGLE_API_KEY is missing."""
     content = (
-        "OPENAI_API_KEY is not configured.\n\n"
+        "GOOGLE_API_KEY is not configured.\n\n"
         "Set it in a .env file in your project root:\n"
-        "OPENAI_API_KEY=your_api_key_here\n\n"
+        "GOOGLE_API_KEY=your_api_key_here\n\n"
         "Then rerun your command."
     )
     console.print(
@@ -55,7 +55,7 @@ def main(
     verbose: bool = typer.Option(False, "--verbose", help="Show AI reasoning for each step."),
 ) -> None:
     """Main entry point: interpret intent, generate commands, and execute with approval."""
-    if not os.getenv("OPENAI_API_KEY"):
+    if not os.getenv("GOOGLE_API_KEY"):
         _show_api_key_setup_panel()
         raise typer.Exit(code=1)
 

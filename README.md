@@ -14,7 +14,7 @@ pip install .
 3. Configure your API key in a .env file at the project root:
 
 ```env
-OPENAI_API_KEY=your_api_key_here
+GOOGLE_API_KEY=your_api_key_here
 ```
 
 4. Run the CLI:
