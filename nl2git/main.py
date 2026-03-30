@@ -50,11 +50,17 @@ def _show_api_key_setup_panel() -> None:
 
 @app.command()
 def main(
-    intent: str = typer.Argument(..., help="Natural language description of what you want to do."),
+    intent: str = typer.Option(
+        None, "-m", "--message", "--intent", help="Natural language description of what you want to do."
+    ),
     dry_run: bool = typer.Option(False, "--dry-run", help="Show what would run without executing."),
     verbose: bool = typer.Option(False, "--verbose", help="Show AI reasoning for each step."),
 ) -> None:
     """Main entry point: interpret intent, generate commands, and execute with approval."""
+    if not intent:
+        console.print("[yellow]Please provide an intent with -m or --message.[/yellow]")
+        raise typer.Exit()
+
     if not os.getenv("GOOGLE_API_KEY"):
         _show_api_key_setup_panel()
         raise typer.Exit(code=1)
@@ -110,6 +116,25 @@ def _run_suggestion_loop(
         console.print(f"\n[yellow]Clarification needed:[/yellow] {suggestion['message']}")
         return
 
+    if suggestion["type"] == "discovery":
+        console.print(f"\n[bold cyan]Context Reasoning:[/bold cyan]\n{suggestion.get('reasoning', '')}\n")
+        console.print("[bold]What would you like to do?[/bold]")
+        options = suggestion.get("options", [])
+        for i, opt in enumerate(options, 1):
+            console.print(f"  [bold cyan]{i}. {opt['label']}[/bold cyan]: {opt['description']}")
+
+        choice = typer.prompt("\nSelect an option (number) or type a new intent", default="1")
+        try:
+            choice_idx = int(choice) - 1
+            if 0 <= choice_idx < len(options):
+                new_intent = options[choice_idx]["label"]
+                _run_suggestion_loop(new_intent, context_string, dry_run, verbose, original_intent=original_intent)
+                return
+        except ValueError:
+            pass
+        _run_suggestion_loop(choice, context_string, dry_run, verbose, original_intent=original_intent)
+        return
+
     if suggestion["type"] != "commands":
         console.print("[red]Error: Unexpected response type from engine.[/red]")
         return
@@ -124,13 +149,26 @@ def _run_suggestion_loop(
     if reasoning and verbose:
         console.print(f"\n[dim]Reasoning:[/dim] {reasoning}\n")
 
-    safety_guard = SafetyGuard(console=console)
-    if not safety_guard.get_user_approval(commands):
-        console.print("[yellow]Execution cancelled by user.[/yellow]")
-        return
+    for cmd in commands:
+        console.print(f"\n[bold cyan]Next Step:[/bold cyan] {cmd}")
+        # Re-fetch reasoning from AI for this specific command if not provided in detail
+        if not dry_run:
+            if not typer.confirm("Execute this command?", default=True):
+                console.print("[yellow]Skipping remaining commands.[/yellow]")
+                break
+            
+            results = run_git_commands([cmd], dry_run=False, stop_on_first_error=True)
+            if results and not results[0].success:
+                console.print(f"\n[red]Failed:[/red] {results[0].error_message}")
+                if retry_count < max_retries:
+                    console.print(f"\n[cyan]Attempting repair...[/cyan]")
+                    _run_suggestion_loop(f"Fix error: {results[0].error_message}", context_string, dry_run, verbose, retry_count+1, original_intent)
+                return
+        else:
+            console.print("[dim](Dry run - skip execution)[/dim]")
 
-    if dry_run:
-        console.print("\n[cyan][Dry Run Mode][/cyan] Commands would execute as follows:")
+    console.print("\n[bold green]✓ Task complete![/bold green]")
+    return
 
     results = run_git_commands(commands, dry_run=dry_run, stop_on_first_error=True)
 

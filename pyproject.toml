@@ -30,13 +30,10 @@ dev = [
 ]
 
 [project.scripts]
-nl2git = "nl2git.main:app"
+githelp = "nl2git.main:app"
 
 [tool.setuptools]
-package-dir = {"" = "src"}
-
-[tool.setuptools.packages.find]
-where = ["src"]
+packages = ["nl2git"]
 
 [tool.black]
 line-length = 100

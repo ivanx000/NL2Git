@@ -48,7 +48,8 @@ Rules:
 4. If intent is vague, risky, or impossible from the provided context, ask one specific clarification question.
 5. Use "discovery" only for truly broad intents (for example: "help", "what can you do", "options") where no concrete Git task is specified.
 6. If the user expresses a concrete goal (for example mentioning add/stage, commit, push, branch, merge, pull, or GitHub sync), return "commands" instead of "discovery".
-7. Return JSON only. Do not include markdown, code fences, or extra prose.
+7. For intents about adding changes to GitHub, prefer this sequence when safe: `git add -A`, `git commit -m "<short message>"`, `git push`.
+8. Return JSON only. Do not include markdown, code fences, or extra prose.
 
 Output formats:
 - If confident:
